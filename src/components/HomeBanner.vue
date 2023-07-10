@@ -33,7 +33,7 @@
         </div>
       </div>
       <div class="row" v-if="!searchHide">
-        <div class="search-box col-md-12 col-lg-12" ref="refDiv">
+        <div class="search-box col-md-12 col-lg-12" ref="refDiv" v-if="!loading">
           <form>
             <div class="form-group search-location">
               <input
@@ -98,7 +98,7 @@ export default {
       keyIndex: 0,
       username: "",
       scores: [],
-      loading: false,
+      loading: true,
       btnTitle: "Start",
       typeClass: "test-type",
       isFinished: false,
@@ -111,8 +111,10 @@ export default {
   },
   async mounted() {
     await this.getExamInformation()
+    this.loading = false
   },
   beforeCreate() {
+    this.loading = true
     authService.checkUserSession().catch((err) => {
       this.loginError = err.response.data
     })
@@ -124,11 +126,20 @@ export default {
       if (this.inputString == "" || this.ideaText == "") {
         console.log("135")
       } else {
+        let score = 0
         this.loading = true
+        const scoreData = await ideaService.getIdeaScore({
+          inputString: this.inputString,
+          ideaText: this.ideaText
+        })
+        if (scoreData) {
+          score = scoreData.originality
+        }
         await ideaService.checkIdeaScore({
           inputString: this.inputString,
           ideaText: this.ideaText,
-          round: this.round
+          round: this.round,
+          score: score
         })
         this.loading = false
         this.getExamInformation()
@@ -136,7 +147,6 @@ export default {
     },
     async getExamInformation() {
       const roundInfo = await ideaService.checkRoundInfo()
-      console.log("roundInfo : ", roundInfo)
       if (roundInfo) {
         this.scores = roundInfo.idea_list
         this.round = roundInfo.round
@@ -279,7 +289,6 @@ export default {
             this.btnHide = true
             this.scores = []
             this.ideaText = ""
-            console.log("Key String: ", keyString)
           }
         } else {
           this.isStart = true

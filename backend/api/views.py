@@ -16,6 +16,8 @@ from json import loads
 from django.http import JsonResponse
 import secrets
 import random
+from django.utils import timezone
+import pytz
 
 # Serve Vue Application
 index_view = never_cache(TemplateView.as_view(template_name='index.html'))
@@ -91,6 +93,7 @@ def GetIdeaScoreView(request):
     input_string = request.POST.get('input_string', '')
     idea_text = request.POST.get('idea_text', '')
     round = request.POST.get('round', 1)
+    score = request.POST.get('score', 1)
     
     objectkey_id = 1
     objectkeydata = ObjectKeys.objects.filter(round=round).filter(object_key=input_string)
@@ -103,60 +106,17 @@ def GetIdeaScoreView(request):
     if key_data.count() > 0:
         key_row = key_data[0]
         user_id = key_row.user_id
-        url = "https://openscoring.du.edu/llm"
-        data = {
-            'model' : 'gpt-davinci-paper_alpha',
-            'prompt' : idea_text,
-            'input' : input_string,
-            'input_type' : 'csv',
-            'elab_method' : "none"
-        }
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
-            "Host": "reserve.tokyodisneyresort.jp",
-            "Origin": "https://openscoring.du.edu",
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            "Sec-Ch-Ua-Platform": "Windows",
-            "Sec-Fetch-Dest":"empty",
-            "Sec-Fetch-Mode":"cors",
-            "Sec-Fetch-Site": "same-origin",
-            "Accept-Encoding":"gzip, deflate, br",
-            "Accept-Language" : "en-US,en;q=0.9,pt;q=0.8,ja;q=0.7",
-            "Connection" : "keep-alive"
-        }
-        session = requests.Session()
-        retries = requests.packages.urllib3.util.retry.Retry(total=5, backoff_factor=0.1)
-        adapter = requests.adapters.HTTPAdapter(max_retries=retries)
-        session.mount('https://', adapter)
-        response = requests.post(url, data=data, headers=headers)
-        result_data = loads(response.content)
+        idea_row = IdeaMarks(user_id=user_id, round=round, object=input_string, response=idea_text, score=score, object_index=objectkey_id )
+        idea_row.save()
+        user_round = UserRound.objects.get(user_id=user_id)
+        user_round.round=round
+        user_round.object_index = objectkey_id
+        user_round.save()
+        responseData['curretScore'] = score
+        responseData['curretString'] = input_string
+        responseData['curretInput'] = idea_text
+        responseData['data'] = True
         responseData['status'] = 'success'
-        print("result data : ", result_data)
-        if 'scores' in result_data:
-            score_data = result_data['scores'][0]
-            responseData['curretScore'] = score_data['originality'] 
-            responseData['curretString'] = score_data['response'] 
-            responseData['curretInput'] = score_data['prompt']
-            responseData['data'] = True
-            idea_row = IdeaMarks(user_id=user_id, round=round, object=score_data['response'], response=score_data['prompt'], score=score_data['originality'], object_index=objectkey_id )
-            idea_row.save()
-            user_round = UserRound.objects.get(user_id=user_id)
-            user_round.round=round
-            user_round.object_index = objectkey_id
-            user_round.save()
-        else:
-            responseData['curretScore'] = random.randint(10, 50) / 10
-            responseData['curretString'] = input_string
-            responseData['curretInput'] = idea_text
-            responseData['data'] = True
-            idea_row = IdeaMarks(user_id=user_id, round=round, object=input_string, response=idea_text, score=responseData['curretScore'], object_index=objectkey_id )
-            idea_row.save()
-            user_round = UserRound.objects.get(user_id=user_id)
-            user_round.round=round
-            user_round.object_index = objectkey_id
-            user_round.save()
     else:
         responseData['status'] = 'fail'
         
@@ -334,6 +294,9 @@ def GetScoreListView(request):
         if round_row_count > 0:
             idx = 0
             for idea in roundRows:
+                target_timezone = pytz.timezone('EST')
+                created_time = idea.created_at.astimezone(target_timezone)
+                print("created_time : ", created_time.strftime("%Y-%m-%d %H:%M:%S"))
                 idea_data = {
                     'id' : key_row.prolific_id,
                     'code' : key_row.user_key,
@@ -341,6 +304,7 @@ def GetScoreListView(request):
                     'object' : idea.object,
                     'response' : idea.response,
                     'creativity score' : idea.score,
+                    'created time' : created_time.strftime("%Y-%m-%d %H:%M:%S")
                 }
                 ideaList.append(idea_data)
                 idx += 1
@@ -350,8 +314,7 @@ def GetScoreListView(request):
         result['status'] = 1
     else:
         result['status'] = 0
-    
-    print("Result:::", result)
+        
     return JsonResponse(result)
 
 def SetUserRoundView(request):

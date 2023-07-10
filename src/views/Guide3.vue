@@ -15,7 +15,7 @@
                   <h1 class="mb-4"><span>Practice</span></h1>
                   <ul class="mb-4">
                     <li class="mb-4">
-                      We'll begin with two practice rounds prior to the main game.
+                      We'll begin with three practice rounds prior to the main game.
                     </li>
                     <li class="mb-4">
                       You'll be shown an object and must type three creative uses for it, hitting
