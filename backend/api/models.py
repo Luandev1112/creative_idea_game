@@ -7,7 +7,7 @@ class Message(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
 class IdeaMarks(models.Model):
-    user_id = models.IntegerField()
+    userkey_id = models.IntegerField()
     round = models.IntegerField()
     object_index = models.IntegerField(default=0)
     object = models.CharField(max_length=200)
@@ -30,7 +30,7 @@ class ObjectKeys(models.Model):
     object_key = models.CharField(max_length=155)
 
 class UserRound(models.Model):
-    user_id = models.IntegerField()
+    userkey_id = models.IntegerField()
     round = models.IntegerField()
     object_index = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

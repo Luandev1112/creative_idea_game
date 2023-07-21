@@ -37,14 +37,18 @@ export default {
     })
   },
   register(payload) {
-    if (!payload.username || !payload.password1 || !payload.password2) {
-      return Promise.reject("Username and password1 and password2 are required.")
+    if (!payload.userKey || !payload.prolificId ) {
+      return Promise.reject("User Key is requred.")
     }
-
-    return api.post(`dj-rest-auth/registration/`, payload).then((response) => {
-      access_token = response.data.access_token
-      user.value = response.data.user
-      return response.data.user
+    let formdata = new FormData()
+    formdata.append("user_key", payload.userKey)
+    formdata.append("prolific_id", payload.prolificId)
+    return api.post(`registerUserKey/`, formdata).then((response) => {
+      if (response.data == 1) {
+        router.push({ name: "guide-1" })
+      } else {
+        console.log("Invalid User Key")
+      }
     })
   },
   // allows to relogin with saved token

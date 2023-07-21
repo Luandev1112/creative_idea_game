@@ -65,7 +65,7 @@ export default {
       console.log(this.prolificId)
       this.loginError = ""
       authService
-        .checkUserKey({
+        .register({
           userKey: this.userId,
           prolificId: this.prolificId
         })

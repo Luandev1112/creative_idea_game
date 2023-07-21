@@ -1,5 +1,6 @@
 import api from "@/services/api"
 import axios from "axios"
+import router from "../router"
 export default {
   async checkIdeaScore(payload) {
     if (!payload.inputString || !payload.ideaText) {
@@ -15,6 +16,8 @@ export default {
       const status = response.data.status
       if (status == "success") {
         ideaList = response.data.idea_list
+      } else {
+        router.push({ name: "login" })
       }
     })
     return ideaList
@@ -23,6 +26,9 @@ export default {
     let roundInfo = null
     await api.get(`getTestingInfo/`).then((response) => {
       roundInfo = response.data
+      if (roundInfo.status == 0) {
+        router.push({ name: "login" })
+      }
     })
     return roundInfo
   },
