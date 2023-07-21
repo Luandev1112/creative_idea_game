@@ -18,6 +18,8 @@ from django.urls import path, include
 from rest_framework import routers
 from .api import views
 from .api.views import index_view, UserViewSet, GroupViewSet, MessageViewSet
+from django.conf.urls.static import static
+from .settings import base
 
 router = routers.DefaultRouter()
 router.register('messages', MessageViewSet)
@@ -31,6 +33,7 @@ urlpatterns = [
     path('api/explorer/', include('rest_framework.urls', namespace='rest_framework')),
     
     path('api/checkUserKey/', views.UserKeyView, name="user-key-view"),
+    path('api/registerUserKey/', views.RegisterKeyView, name="register-key-view"),
     
     path('api/checkUserSession/', views.UserSessionView, name="user-session-view"),
     
@@ -47,7 +50,8 @@ urlpatterns = [
 
     # http://localhost:8000/api/admin/
     path('api/admin/', admin.site.urls),
-     # http://localhost:8000/
+    
+    # http://localhost:8000/
     path('', index_view, name='index'),
 
 ]

@@ -9,7 +9,7 @@
             <h2 ref="refTop">
               {{ roundTitle }} <a v-if="isStart">{{ keyIndex }}/{{ roundCount }}</a>
             </h2>
-            <p v-if="!isStart">{{ roundSubTitle }}</p>
+            <p v-if="!isStart" v-html="roundSubTitle"></p>
           </div>
         </div>
         <div
@@ -32,8 +32,38 @@
           </div>
         </div>
       </div>
+
+      <div class="row" v-if="showMark">
+        <div class="col-12 col-md-8 col-lg-8 offset-lg-2 offset-md-2 mb-2">
+          <div class="progress-bar-custom">
+            <h6 class="mt-1">Less Creative (1 ~ 1.6)</h6>
+            <div class="pro-progress">
+              <div class="tooltip-toggle low-score" style="width: 26%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-8 col-lg-8 offset-lg-2 offset-md-2 mb-2">
+          <div class="progress-bar-custom">
+            <h6 class="mt-1">More Creative (1.7 ~ 3.3)</h6>
+            <div class="pro-progress">
+              <div class="tooltip-toggle middle-score" style="width: 50%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-8 col-lg-8 offset-lg-2 offset-md-2 mb-2">
+          <div class="progress-bar-custom">
+            <h6 class="mt-1">Very Creative (3.4 ~ 5)</h6>
+            <div class="pro-progress">
+              <div class="tooltip-toggle high-score" style="width: 70%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="row" v-if="!searchHide">
-        <div class="search-box col-md-12 col-lg-12" ref="refDiv">
+        <div class="search-box col-md-12 col-lg-12" ref="refDiv" v-if="!loading">
           <form>
             <div class="form-group search-location">
               <input
@@ -98,7 +128,7 @@ export default {
       keyIndex: 0,
       username: "",
       scores: [],
-      loading: false,
+      loading: true,
       btnTitle: "Start",
       typeClass: "test-type",
       isFinished: false,
@@ -106,13 +136,16 @@ export default {
       isStart: false,
       isFinal: false,
       btnHide: false,
-      searchHide: false
+      searchHide: false,
+      showMark: false
     }
   },
   async mounted() {
     await this.getExamInformation()
+    this.loading = false
   },
   beforeCreate() {
+    this.loading = true
     authService.checkUserSession().catch((err) => {
       this.loginError = err.response.data
     })
@@ -124,11 +157,20 @@ export default {
       if (this.inputString == "" || this.ideaText == "") {
         console.log("135")
       } else {
+        let score = 0
         this.loading = true
+        const scoreData = await ideaService.getIdeaScore({
+          inputString: this.inputString,
+          ideaText: this.ideaText
+        })
+        if (scoreData) {
+          score = scoreData.originality
+        }
         await ideaService.checkIdeaScore({
           inputString: this.inputString,
           ideaText: this.ideaText,
-          round: this.round
+          round: this.round,
+          score: score
         })
         this.loading = false
         this.getExamInformation()
@@ -136,7 +178,6 @@ export default {
     },
     async getExamInformation() {
       const roundInfo = await ideaService.checkRoundInfo()
-      console.log("roundInfo : ", roundInfo)
       if (roundInfo) {
         this.scores = roundInfo.idea_list
         this.round = roundInfo.round
@@ -199,21 +240,24 @@ export default {
             this.roundClass = "exam"
             this.roundSubTitle =
               "Now it’s time to play the game. You’ll play five rounds. You’ll get points based on the originality of your ideas. The better the ideas, the higher your score. Remember to be creative!"
+            this.showMark = true
             break
           case 3:
             this.roundTitle = "Final round!"
             this.roundCount = 3
             this.roundClass = "practice"
             this.roundSubTitle =
-              "For this last part, you’ll play three rounds of the game, just like before."
+              "For this last part, you’ll play three rounds of the game, just like before.<br/> You will not see any creativity scores this time."
             break
         }
       }
     },
     async btnClick() {
+      this.showMark = false
       if (this.typeClass == "finish-type") {
-        this.roundTitle = "Please return to Prolific and enter the complection code COGAME"
-        this.roundSubTitle = ""
+        this.roundTitle = "Thanks! Please complete this survey now"
+        this.roundSubTitle =
+          "<a href='https://pennstate.qualtrics.com/jfe/form/SV_6kQzfiT9bI3h8vY' target='_blank'>https://pennstate.qualtrics.com/jfe/form/SV_6kQzfiT9bI3h8vY</a>"
         this.scores = []
         this.isStart = false
         this.btnHide = true
@@ -237,8 +281,9 @@ export default {
           if (this.isFinal) {
             if (this.round == 3) {
               if (this.typeClass == "exam-type") {
-                this.roundTitle = "Please return to Prolific and enter the complection code COGAME"
-                this.roundSubTitle = ""
+                this.roundTitle = "Thanks! Please complete this survey now: "
+                this.roundSubTitle =
+                  "<a href='https://pennstate.qualtrics.com/jfe/form/SV_6kQzfiT9bI3h8vY' target='_blank'>https://pennstate.qualtrics.com/jfe/form/SV_6kQzfiT9bI3h8vY</a>"
                 this.scores = []
                 this.isStart = false
                 this.btnHide = true
@@ -279,7 +324,6 @@ export default {
             this.btnHide = true
             this.scores = []
             this.ideaText = ""
-            console.log("Key String: ", keyString)
           }
         } else {
           this.isStart = true

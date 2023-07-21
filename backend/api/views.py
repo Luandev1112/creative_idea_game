@@ -5,6 +5,7 @@ from django.http import request
 from django.http import HttpResponse
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
+from django.contrib.auth.models import User
 from .models import Message
 from .models import UserKey
 from .models import IdeaMarks
@@ -16,6 +17,10 @@ from json import loads
 from django.http import JsonResponse
 import secrets
 import random
+from django.utils import timezone
+import pytz
+
+from django.conf import settings
 
 # Serve Vue Application
 index_view = never_cache(TemplateView.as_view(template_name='index.html'))
@@ -58,23 +63,64 @@ def UserKeyView(request, *args, **kwargs):
             key_row.save()
             request.session['user_session'] = random_string
             user_status = 1
-            user_id = key_row.user_id
-            scores_to_delete = IdeaMarks.objects.filter(user_id=user_id)
+            userkey_id = key_row.id
+            scores_to_delete = IdeaMarks.objects.filter(userkey_id=userkey_id)
             scores_to_delete.delete()
-            user_rounds = UserRound.objects.filter(user_id=user_id)
+            user_rounds = UserRound.objects.filter(userkey_id=userkey_id)
             if user_rounds.count() > 0:
                 user_round = user_rounds[0]
                 user_round.round = 1
                 user_round.object_index = 1
                 user_round.save()
             else:
-                user_round = UserRound(user_id=user_id, round=1, object_index=1)
+                user_round = UserRound(userkey_id=userkey_id, round=1, object_index=1)
                 user_round.save()
         else:
             user_status = 0
     return HttpResponse(user_status)
 
+def RegisterKeyView(request, *args, **kwargs):
+    user_status = 0
+    key = request.POST.get('user_key', None)
+    prolific_id = request.POST.get('prolific_id', None)
+    if key != None:
+        key_data = UserKey.objects.filter(user_key=key).filter(prolific_id=prolific_id)
+        if key_data.count() > 0:
+            random_string = secrets.token_hex(64)
+            key_row = key_data[0]
+            key_row.user_session = random_string
+            key_row.save()
+            request.session['user_session'] = random_string
+            user_status = 1
+            userkey_id = key_row.id
+            scores_to_delete = IdeaMarks.objects.filter(userkey_id=userkey_id)
+            scores_to_delete.delete()
+            user_rounds = UserRound.objects.filter(userkey_id=userkey_id)
+            if user_rounds.count() > 0:
+                user_round = user_rounds[0]
+                user_round.round = 1
+                user_round.object_index = 1
+                user_round.save()
+            else:
+                user_round = UserRound(userkey_id=userkey_id, round=1, object_index=1)
+                user_round.save()
+        else:
+            key_type = 0
+            if key=='exam123':
+                key_type = 1
+            elif key=='test123':
+                key_type = 0
+            random_string = secrets.token_hex(64)
+            user_key = UserKey(user_key=key, prolific_id=prolific_id, key_type=key_type, user_session=random_string, user_id=1)
+            user_key.save()
+            request.session['user_session'] = random_string
+            user_status = 1
+            
+    return HttpResponse(user_status)
+
 def UserSessionView(request):
+    session_expiration_time = settings.SESSION_COOKIE_AGE
+    print("Session Expiration Time : ", session_expiration_time)
     session_data = request.session.get('user_session')
     key_data = UserKey.objects.filter(user_session=session_data)
     status = 0
@@ -91,6 +137,7 @@ def GetIdeaScoreView(request):
     input_string = request.POST.get('input_string', '')
     idea_text = request.POST.get('idea_text', '')
     round = request.POST.get('round', 1)
+    score = request.POST.get('score', 1)
     
     objectkey_id = 1
     objectkeydata = ObjectKeys.objects.filter(round=round).filter(object_key=input_string)
@@ -102,61 +149,18 @@ def GetIdeaScoreView(request):
     responseData = {}
     if key_data.count() > 0:
         key_row = key_data[0]
-        user_id = key_row.user_id
-        url = "https://openscoring.du.edu/llm"
-        data = {
-            'model' : 'gpt-davinci-paper_alpha',
-            'prompt' : idea_text,
-            'input' : input_string,
-            'input_type' : 'csv',
-            'elab_method' : "none"
-        }
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
-            "Host": "reserve.tokyodisneyresort.jp",
-            "Origin": "https://openscoring.du.edu",
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            "Sec-Ch-Ua-Platform": "Windows",
-            "Sec-Fetch-Dest":"empty",
-            "Sec-Fetch-Mode":"cors",
-            "Sec-Fetch-Site": "same-origin",
-            "Accept-Encoding":"gzip, deflate, br",
-            "Accept-Language" : "en-US,en;q=0.9,pt;q=0.8,ja;q=0.7",
-            "Connection" : "keep-alive"
-        }
-        session = requests.Session()
-        retries = requests.packages.urllib3.util.retry.Retry(total=5, backoff_factor=0.1)
-        adapter = requests.adapters.HTTPAdapter(max_retries=retries)
-        session.mount('https://', adapter)
-        response = requests.post(url, data=data, headers=headers)
-        result_data = loads(response.content)
+        userkey_id = key_row.id
+        idea_row = IdeaMarks(userkey_id=userkey_id, round=round, object=input_string, response=idea_text, score=score, object_index=objectkey_id )
+        idea_row.save()
+        user_round = UserRound.objects.get(userkey_id=userkey_id)
+        user_round.round=round
+        user_round.object_index = objectkey_id
+        user_round.save()
+        responseData['curretScore'] = score
+        responseData['curretString'] = input_string
+        responseData['curretInput'] = idea_text
+        responseData['data'] = True
         responseData['status'] = 'success'
-        print("result data : ", result_data)
-        if 'scores' in result_data:
-            score_data = result_data['scores'][0]
-            responseData['curretScore'] = score_data['originality'] 
-            responseData['curretString'] = score_data['response'] 
-            responseData['curretInput'] = score_data['prompt']
-            responseData['data'] = True
-            idea_row = IdeaMarks(user_id=user_id, round=round, object=score_data['response'], response=score_data['prompt'], score=score_data['originality'], object_index=objectkey_id )
-            idea_row.save()
-            user_round = UserRound.objects.get(user_id=user_id)
-            user_round.round=round
-            user_round.object_index = objectkey_id
-            user_round.save()
-        else:
-            responseData['curretScore'] = random.randint(10, 50) / 10
-            responseData['curretString'] = input_string
-            responseData['curretInput'] = idea_text
-            responseData['data'] = True
-            idea_row = IdeaMarks(user_id=user_id, round=round, object=input_string, response=idea_text, score=responseData['curretScore'], object_index=objectkey_id )
-            idea_row.save()
-            user_round = UserRound.objects.get(user_id=user_id)
-            user_round.round=round
-            user_round.object_index = objectkey_id
-            user_round.save()
     else:
         responseData['status'] = 'fail'
         
@@ -171,19 +175,19 @@ def GetTestingInfoView(request):
     key_type = 0
     if key_data.count() > 0:
         key_row = key_data[0]
-        user_id = key_row.user_id
+        userkey_id = key_row.id
         key_type = key_row.key_type
         result['key_type'] = key_type
         user_round = None
-        user_rounds = UserRound.objects.filter(user_id=user_id)
+        user_rounds = UserRound.objects.filter(userkey_id=userkey_id)
         if user_rounds.count() == 0:
-            user_round = UserRound(user_id=user_id, round=1, object_index=1)
+            user_round = UserRound(userkey_id=userkey_id, round=1, object_index=1)
             user_round.save()
         else:
             user_round = user_rounds[0]
         
         round = user_round.round
-        roundRows = IdeaMarks.objects.filter(user_id=user_id).filter(round=round)
+        roundRows = IdeaMarks.objects.filter(userkey_id=userkey_id).filter(round=round)
         if roundRows.count() == 0:
             result['isStart'] = False
         else:
@@ -198,7 +202,7 @@ def GetTestingInfoView(request):
             result['isFinal'] = False
             
         objectKey = ObjectKeys.objects.get(id=current_word_index)
-        ideaRows = IdeaMarks.objects.filter(user_id=user_id).filter(object_index=current_word_index)
+        ideaRows = IdeaMarks.objects.filter(userkey_id=userkey_id).filter(object_index=current_word_index)
         if ideaRows.count() > 0:
             round_row_count = ideaRows.count()
             ideaList = []
@@ -246,8 +250,8 @@ def GetObjectKeyView(request):
     if key_data.count() > 0:
         if int(round) < 4:   
             key_row = key_data[0]
-            user_id = key_row.user_id
-            user_round = UserRound.objects.get(user_id=user_id)
+            userkey_id = key_row.id
+            user_round = UserRound.objects.get(userkey_id=userkey_id)
             object_key = ObjectKeys.objects.get(id=user_round.object_index).object_key
             result['status'] = 1
             result['object_key'] = object_key
@@ -267,8 +271,8 @@ def GetNextKeyView(request):
     result = {}
     if key_data.count() > 0:
         key_row = key_data[0]
-        user_id = key_row.user_id
-        user_round = UserRound.objects.get(user_id=user_id)
+        userkey_id = key_row.id
+        user_round = UserRound.objects.get(userkey_id=userkey_id)
         user_round.object_index = object_index
         user_round.save()
         object_key = ObjectKeys.objects.get(id=user_round.object_index).object_key
@@ -286,8 +290,8 @@ def GetIdeaListView(request):
     result = {}
     if key_data.count() > 0:
         key_row = key_data[0]
-        user_id = key_row.user_id
-        roundRows = IdeaMarks.objects.filter(user_id=user_id).filter(round=round)
+        userkey_id = key_row.id
+        roundRows = IdeaMarks.objects.filter(userkey_id=userkey_id).filter(round=round)
         round_row_count = roundRows.count()
         ideaList = []
         if round_row_count > 0:
@@ -327,13 +331,16 @@ def GetScoreListView(request):
     result = {}
     if key_data.count() > 0:
         key_row = key_data[0]
-        user_id = key_row.user_id
-        roundRows = IdeaMarks.objects.filter(user_id=user_id)
+        userkey_id = key_row.id
+        roundRows = IdeaMarks.objects.filter(userkey_id=userkey_id)
         round_row_count = roundRows.count()
         ideaList = []
         if round_row_count > 0:
             idx = 0
             for idea in roundRows:
+                target_timezone = pytz.timezone('EST')
+                created_time = idea.created_at.astimezone(target_timezone)
+                print("created_time : ", created_time.strftime("%Y-%m-%d %H:%M:%S"))
                 idea_data = {
                     'id' : key_row.prolific_id,
                     'code' : key_row.user_key,
@@ -341,6 +348,7 @@ def GetScoreListView(request):
                     'object' : idea.object,
                     'response' : idea.response,
                     'creativity score' : idea.score,
+                    'created time' : created_time.strftime("%Y-%m-%d %H:%M:%S")
                 }
                 ideaList.append(idea_data)
                 idx += 1
@@ -350,8 +358,7 @@ def GetScoreListView(request):
         result['status'] = 1
     else:
         result['status'] = 0
-    
-    print("Result:::", result)
+        
     return JsonResponse(result)
 
 def SetUserRoundView(request):
@@ -361,8 +368,8 @@ def SetUserRoundView(request):
     result = {}
     if key_data.count() > 0:
         key_row = key_data[0]
-        user_id = key_row.user_id
-        user_rounds = UserRound.objects.filter(user_id=user_id)
+        userkey_id = key_row.id
+        user_rounds = UserRound.objects.filter(userkey_id=userkey_id)
         if user_rounds.count() > 0:
             user_round = user_rounds[0]
             user_round.round = round

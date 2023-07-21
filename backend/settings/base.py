@@ -149,9 +149,7 @@ MIDDLEWARE_CLASSES = (
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
-
 STATIC_URL = 'static/'
-
 # Place static in the same location as webpack build files
 STATIC_ROOT = os.path.join(BASE_DIR, 'dist', 'static')
 STATICFILES_DIRS = [
@@ -183,6 +181,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 #     'USE_JWT': True,
 # }
 
-SESSION_EXPIRE_SECONDS = 900  # 3 minute
-SESSION_EXPIRE_AFTER_LAST_ACTIVITY = True
-SESSION_EXPIRE_AFTER_LAST_ACTIVITY_GRACE_PERIOD = 1 # group by minute
+# SESSION_EXPIRE_AFTER_LAST_ACTIVITY = True
+# SESSION_EXPIRE_AFTER_LAST_ACTIVITY_GRACE_PERIOD = 1 # group by minute
+
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_AGE = 1800 # set just 10 seconds to test
+SESSION_SAVE_EVERY_REQUEST = True

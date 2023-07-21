@@ -1,4 +1,6 @@
 import api from "@/services/api"
+import axios from "axios"
+import router from "../router"
 export default {
   async checkIdeaScore(payload) {
     if (!payload.inputString || !payload.ideaText) {
@@ -8,11 +10,14 @@ export default {
     formdata.append("input_string", payload.inputString)
     formdata.append("idea_text", payload.ideaText)
     formdata.append("round", payload.round)
+    formdata.append("score", payload.score)
     let ideaList = null
     await api.post(`getIdeaScore/`, formdata).then((response) => {
       const status = response.data.status
       if (status == "success") {
         ideaList = response.data.idea_list
+      } else {
+        router.push({ name: "login" })
       }
     })
     return ideaList
@@ -21,6 +26,9 @@ export default {
     let roundInfo = null
     await api.get(`getTestingInfo/`).then((response) => {
       roundInfo = response.data
+      if (roundInfo.status == 0) {
+        router.push({ name: "login" })
+      }
     })
     return roundInfo
   },
@@ -67,4 +75,27 @@ export default {
     })
     return scoreList
   },
+
+  async getIdeaScore(payload) {
+    let scoreData = null
+    const api = axios.create({
+      baseURL: "https://openscoring.du.edu",
+      headers: {
+        Accept: "application/json, text/javascript, */*; q=0.01",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+      }
+    })
+    const res = await api.post("/llm", {
+      model: "gpt-davinci-paper_alpha",
+      prompt: payload.ideaText,
+      input: payload.inputString,
+      input_type: "csv",
+      elab_method: "none"
+    })
+    const scores = res.data.scores
+    if (scores.length > 0) {
+      scoreData = res.data.scores[0]
+    }
+    return scoreData
+  }
 }
