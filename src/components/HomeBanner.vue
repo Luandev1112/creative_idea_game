@@ -273,7 +273,7 @@ export default {
             this.btnTitle = "Finish"
             const scoreList = await ideaService.getScoreList()
             console.log("Score List : ", scoreList)
-            excelParser().exportDataFromJSON(scoreList, null, null)
+            // excelParser().exportDataFromJSON(scoreList, null, null)
           }
         }
 
@@ -290,7 +290,7 @@ export default {
                 // xcxzcvxcvxc
                 const scoreList = await ideaService.getScoreList()
                 console.log("Score List : ", scoreList)
-                excelParser().exportDataFromJSON(scoreList, null, null)
+                // excelParser().exportDataFromJSON(scoreList, null, null)
               } else if (this.typeClass == "test-type") {
                 this.btnTitle = "Show Result"
                 this.isResult = true

@@ -27,7 +27,7 @@
         </div>
         <ul class="nav header-navbar-rht">
           <li class="nav-item">
-            <router-link class="nav-link" to="/login">New Study Code</router-link>
+            <!-- <router-link class="nav-link" to="/login">New Study Code</router-link> -->
           </li>
         </ul>
       </nav>

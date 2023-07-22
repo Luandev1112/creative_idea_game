@@ -19,6 +19,7 @@ import secrets
 import random
 from django.utils import timezone
 import pytz
+import csv
 
 from django.conf import settings
 
@@ -106,9 +107,9 @@ def RegisterKeyView(request, *args, **kwargs):
                 user_round.save()
         else:
             key_type = 0
-            if key=='exam123':
+            if key=='cog555':
                 key_type = 1
-            elif key=='test123':
+            elif key=='cog111':
                 key_type = 0
             random_string = secrets.token_hex(64)
             user_key = UserKey(user_key=key, prolific_id=prolific_id, key_type=key_type, user_session=random_string, user_id=1)
@@ -314,7 +315,7 @@ def GetIdeaListView(request):
                     'score_percent' : score_percent
                 }
                 ideaList.append(idea_data)
-                idx += 1
+                idx += 1     
             result['idea_list'] = ideaList
         else:
             result['idea_list'] = []
@@ -335,6 +336,7 @@ def GetScoreListView(request):
         roundRows = IdeaMarks.objects.filter(userkey_id=userkey_id)
         round_row_count = roundRows.count()
         ideaList = []
+        rowsData = [["id", "code", "round", "object", "response", "creativity score", "created time"]]
         if round_row_count > 0:
             idx = 0
             for idea in roundRows:
@@ -351,8 +353,19 @@ def GetScoreListView(request):
                     'created time' : created_time.strftime("%Y-%m-%d %H:%M:%S")
                 }
                 ideaList.append(idea_data)
+                
+                row_data = [key_row.prolific_id, key_row.user_key, idea.round, idea.object, idea.response, idea.score, created_time.strftime("%Y-%m-%d %H:%M:%S")]
+                rowsData.append(row_data)
                 idx += 1
             result['score_list'] = ideaList
+            
+            filename = "result/"+key_row.prolific_id + "_" + key_row.user_key + '.csv'
+            with open(filename, 'w', newline='') as csvfile:
+                # Create a writer object
+                csvwriter = csv.writer(csvfile)
+                # Write the data rows
+                csvwriter.writerows(rowsData)
+            
         else:
             result['score_list'] = []
         result['status'] = 1
